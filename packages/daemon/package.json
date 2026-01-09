@@ -1,0 +1,22 @@
+{
+  "name": "@wig/canvas-daemon",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Daemon process for canvas - manages browser and handles IPC",
+  "bin": {
+    "canvasd": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wig/canvas-core": "workspace:*",
+    "playwright": "^1.57.0"
+  },
+  "files": [
+    "dist"
+  ]
+}

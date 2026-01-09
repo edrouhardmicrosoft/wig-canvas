@@ -1,0 +1,329 @@
+import { createServer, type Server, type Socket } from 'node:net';
+import { unlinkSync, existsSync, writeFileSync, chmodSync } from 'node:fs';
+import {
+  type Request,
+  type Response,
+  type SuccessResponse,
+  type ErrorResponse,
+  type RequestId,
+  ErrorCodes,
+  createDaemonError,
+  createTimeoutError,
+  createSelectorError,
+  PROTOCOL_VERSION,
+  DAEMON_VERSION,
+  isCompatible,
+  getSocketPath,
+  getPidFilePath,
+  type DaemonInfo,
+  type SessionInfo,
+  type ScreenshotResult,
+} from '@wig/canvas-core';
+import { BrowserManager } from '../browser/index.js';
+
+export interface DaemonState {
+  running: boolean;
+}
+
+export class DaemonServer {
+  private server: Server | null = null;
+  private socketPath: string;
+  private connections: Set<Socket> = new Set();
+  private browserManager: BrowserManager;
+
+  constructor() {
+    this.socketPath = getSocketPath();
+    this.browserManager = new BrowserManager();
+  }
+
+  async start(): Promise<void> {
+    if (existsSync(this.socketPath)) {
+      unlinkSync(this.socketPath);
+    }
+
+    this.server = createServer((socket) => {
+      this.handleConnection(socket);
+    });
+
+    return new Promise((resolve, reject) => {
+      this.server?.on('error', reject);
+      this.server?.listen(this.socketPath, () => {
+        chmodSync(this.socketPath, 0o600);
+        writeFileSync(getPidFilePath(), String(process.pid), { mode: 0o600 });
+        console.error(`Daemon listening on ${this.socketPath}`);
+        resolve();
+      });
+    });
+  }
+
+  async stop(): Promise<void> {
+    await this.browserManager.closeBrowser();
+
+    for (const socket of this.connections) {
+      socket.destroy();
+    }
+    this.connections.clear();
+
+    return new Promise((resolve) => {
+      if (this.server) {
+        this.server.close(() => {
+          if (existsSync(this.socketPath)) {
+            unlinkSync(this.socketPath);
+          }
+          if (existsSync(getPidFilePath())) {
+            unlinkSync(getPidFilePath());
+          }
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  private handleConnection(socket: Socket): void {
+    this.connections.add(socket);
+
+    let buffer = '';
+
+    socket.on('data', (data) => {
+      buffer += data.toString();
+
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (line.trim()) {
+          void this.handleMessage(socket, line);
+        }
+      }
+    });
+
+    socket.on('close', () => {
+      this.connections.delete(socket);
+    });
+
+    socket.on('error', (err) => {
+      console.error('Socket error:', err.message);
+      this.connections.delete(socket);
+    });
+  }
+
+  private async handleMessage(socket: Socket, message: string): Promise<void> {
+    let request: Request;
+
+    try {
+      request = JSON.parse(message) as Request;
+    } catch {
+      const response: ErrorResponse = {
+        id: 'req_unknown',
+        ok: false,
+        error: {
+          code: ErrorCodes.INPUT_INVALID,
+          message: 'Invalid JSON in request',
+          data: { category: 'input', retryable: false },
+        },
+      };
+      this.sendResponse(socket, response);
+      return;
+    }
+
+    const clientProtocolVersion = request.meta.protocolVersion;
+    if (!isCompatible(clientProtocolVersion, PROTOCOL_VERSION)) {
+      const response: ErrorResponse = {
+        id: request.id,
+        ok: false,
+        error: createDaemonError(
+          ErrorCodes.PROTOCOL_VERSION_MISMATCH,
+          `Protocol version mismatch: client ${clientProtocolVersion}, daemon ${PROTOCOL_VERSION}`,
+          {
+            retryable: false,
+            suggestion: `Upgrade your CLI to match daemon protocol version ${PROTOCOL_VERSION}`,
+          }
+        ),
+      };
+      this.sendResponse(socket, response);
+      return;
+    }
+
+    const response = await this.dispatch(request);
+    this.sendResponse(socket, response);
+  }
+
+  private async dispatch(request: Request): Promise<Response> {
+    const { id, method, params } = request;
+
+    switch (method) {
+      case 'ping':
+        return this.successResponse(id, { pong: true });
+
+      case 'daemon.status':
+        return this.successResponse(id, this.getDaemonStatus());
+
+      case 'daemon.stop':
+        setImmediate(() => {
+          void this.stop().then(() => process.exit(0));
+        });
+        return this.successResponse(id, { stopping: true });
+
+      case 'connect':
+        return this.handleConnect(id, params as { url: string });
+
+      case 'disconnect':
+        return this.handleDisconnect(id);
+
+      case 'status':
+        return this.successResponse(id, this.getSessionStatus());
+
+      case 'screenshot.viewport':
+        return this.handleScreenshot(id, request.meta.cwd, params as { out?: string });
+
+      case 'screenshot.element':
+        return this.handleScreenshot(
+          id,
+          request.meta.cwd,
+          params as { selector: string; out?: string }
+        );
+
+      default:
+        return {
+          id,
+          ok: false,
+          error: {
+            code: ErrorCodes.INPUT_INVALID,
+            message: `Unknown method: ${method}`,
+            data: { category: 'input', retryable: false, param: 'method' },
+          },
+        };
+    }
+  }
+
+  private async handleConnect(id: RequestId, params: { url: string }): Promise<Response> {
+    if (!params.url) {
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.INPUT_MISSING,
+          message: 'Missing required parameter: url',
+          data: { category: 'input', retryable: false, param: 'url' },
+        },
+      };
+    }
+
+    try {
+      const sessionState = await this.browserManager.connect(params.url);
+      return this.successResponse(id, {
+        connected: true,
+        url: sessionState.url ?? undefined,
+        browser: this.browserManager.getEngine(),
+        viewport: sessionState.viewport,
+      } satisfies SessionInfo);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('Timeout') || message.includes('timeout')) {
+        return {
+          id,
+          ok: false,
+          error: createTimeoutError(
+            ErrorCodes.NAVIGATION_TIMEOUT,
+            `Navigation timeout: ${params.url}`,
+            { suggestion: 'Check if the URL is accessible and try again' }
+          ),
+        };
+      }
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.NAVIGATION_FAILED,
+          message: `Failed to connect: ${message}`,
+          data: { category: 'navigation', retryable: true },
+        },
+      };
+    }
+  }
+
+  private async handleDisconnect(id: RequestId): Promise<Response> {
+    await this.browserManager.disconnect();
+    return this.successResponse(id, { disconnected: true });
+  }
+
+  private async handleScreenshot(
+    id: RequestId,
+    cwd: string,
+    params: { selector?: string; out?: string }
+  ): Promise<Response> {
+    if (!this.browserManager.isConnected()) {
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.PAGE_NOT_READY,
+          message: 'No page connected. Use connect first.',
+          data: { category: 'browser', retryable: false },
+        },
+      };
+    }
+
+    try {
+      const result = await this.browserManager.takeScreenshot({
+        path: params.out,
+        selector: params.selector,
+        cwd,
+      });
+      return this.successResponse(id, result satisfies ScreenshotResult);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('selector') || message.includes('locator')) {
+        return {
+          id,
+          ok: false,
+          error: createSelectorError(
+            ErrorCodes.SELECTOR_NOT_FOUND,
+            `Selector not found: ${params.selector ?? 'unknown'}`,
+            params.selector ?? 'unknown'
+          ),
+        };
+      }
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.INTERNAL_ERROR,
+          message: `Screenshot failed: ${message}`,
+          data: { category: 'internal', retryable: false },
+        },
+      };
+    }
+  }
+
+  private getSessionStatus(): SessionInfo {
+    const state = this.browserManager.getSessionState();
+    return {
+      connected: this.browserManager.isConnected(),
+      url: state.url ?? undefined,
+      browser: this.browserManager.getEngine(),
+      viewport: state.viewport,
+    };
+  }
+
+  private getDaemonStatus(): DaemonInfo {
+    return {
+      pid: process.pid,
+      socketPath: this.socketPath,
+      version: DAEMON_VERSION,
+      protocolVersion: PROTOCOL_VERSION,
+    };
+  }
+
+  private successResponse<T>(id: RequestId, result: T): SuccessResponse<T> {
+    return { id, ok: true, result };
+  }
+
+  private sendResponse(socket: Socket, response: Response): void {
+    const json = JSON.stringify(response);
+    socket.write(json + '\n');
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@wig/canvas-cli",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CLI for canvas - browser automation toolkit",
+  "bin": {
+    "canvas": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wig/canvas-core": "workspace:*",
+    "commander": "^14.0.2"
+  },
+  "files": [
+    "dist"
+  ]
+}

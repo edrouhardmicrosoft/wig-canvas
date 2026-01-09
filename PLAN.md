@@ -90,13 +90,24 @@ PLAN.md
 
 ```bash
 canvas connect http://localhost:3000 --watch ./src
+
+# Screenshots (artifact paths by default)
 canvas screenshot --out ./tmp/current.png
 canvas screenshot ".hero-section" --out ./tmp/hero.png
+
+# Screenshots (inline bytes for agents that can’t read files)
+canvas screenshot --format json --inline
+canvas screenshot ".hero-section" --format json --inline
+
 canvas describe ".hero-section"
 canvas describe ".hero-section" --format json
 canvas diff --since last
 canvas dom --depth 3
 canvas styles ".hero-section" --props display,color,background,padding
+
+# One-shot “give me context” (bundles screenshot + describe + dom + styles)
+canvas context ".hero-section" --format json
+
 canvas a11y --level AA
 canvas watch --format ndjson
 ```
@@ -124,6 +135,10 @@ If `diff --since last` is invoked and no baseline exists:
 ### 1) Screenshot
 - viewport: `page.screenshot()`
 - element: `locator.screenshot()`
+
+Agent-friendly modes:
+- Default: write PNG artifact under `.canvas/screenshots/` and return the file path.
+- Optional `--inline` (or equivalent): include the screenshot bytes as base64 in structured output, so agents that can’t read local files can still consume image payloads via stdout.
 
 Stability knobs:
 - disable animations (default on)
@@ -300,6 +315,8 @@ Each error includes:
 
 ### Method surface (Phase 1)
 
+Note: `context` is a convenience method intended for agent workflows. It bundles multiple inspections into a single call and can optionally include inline screenshot bytes.
+
 Daemon methods (invoked by CLI):
 - `ping`
 - `daemon.status`, `daemon.stop` (daemon.start is handled by CLI launcher)
@@ -349,6 +366,8 @@ Notes:
 - `dom` semantic snapshots
 - `styles` computed extraction
 - output layer (`--format` everywhere)
+- `canvas context` command (one-shot bundle: screenshot + describe + dom + styles)
+- optional `--inline` screenshot bytes for structured outputs (base64)
 
 ### Phase 3: Visual Diff (Weeks 5–6)
 - `diff` with pixelmatch
@@ -367,6 +386,11 @@ Notes:
 - daemon auto-start
 - packaging + publish
 - agent skills
+- agent-facing README (how to use the CLI for visual context)
+
+### Phase 6: Agent Integrations (Post-Week 8)
+- MCP server wrapper (first-class tool interface for agents that prefer MCP over shelling out)
+- Optional REST wrapper (defer unless demanded)
 
 ---
 

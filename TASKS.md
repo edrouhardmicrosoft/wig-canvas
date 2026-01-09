@@ -1,100 +1,100 @@
 ## Phase 1 — Foundation (Weeks 1–2)
 
-[ ] Initialize pnpm workspace (root `package.json`, `pnpm-workspace.yaml`) with packages `core/`, `cli/`, `daemon/`.
-[ ] Verify pnpm workspace: `pnpm -w -r list` runs and shows `core`, `cli`, `daemon` packages.
+[x] Initialize pnpm workspace (root `package.json`, `pnpm-workspace.yaml`) with packages `core/`, `cli/`, `daemon/`.
+[x] Verify pnpm workspace: `pnpm -w -r list` runs and shows `core`, `cli`, `daemon` packages.
 
-[ ] Add root TypeScript tooling: `tsconfig.json` (build + dev), ensure all packages extend it.
-[ ] Verify TypeScript config: `pnpm -w typecheck` succeeds and each package extends the root config.
+[x] Add root TypeScript tooling: `tsconfig.json` (build + dev), ensure all packages extend it.
+[x] Verify TypeScript config: `pnpm -w typecheck` succeeds and each package extends the root config.
 
-[ ] Add root lint/format baseline (ESLint + Prettier) and minimal scripts (`lint`, `format`, `typecheck`, `build`).
-[ ] Verify lint/format: `pnpm -w lint` and `pnpm -w format --check` succeed.
+[x] Add root lint/format baseline (ESLint + Prettier) and minimal scripts (`lint`, `format`, `typecheck`, `build`).
+[x] Verify lint/format: `pnpm -w lint` and `pnpm -w format --check` succeed.
 
-[ ] Create `packages/core` package scaffold with exports set up (`types`, `errors`, `protocol`).
-[ ] Verify `core` package build: `pnpm -w --filter @wig/canvas-core build` produces dist outputs and exports resolve.
+[x] Create `packages/core` package scaffold with exports set up (`types`, `errors`, `protocol`).
+[x] Verify `core` package build: `pnpm -w --filter @wig/canvas-core build` produces dist outputs and exports resolve.
 
-[ ] Define shared protocol types in `packages/core` (Request/Response envelope, ids, method names, params/result typing, format enums).
-[ ] Verify protocol types compile: `pnpm -w --filter @wig/canvas-core typecheck` succeeds and a sample import compiles.
+[x] Define shared protocol types in `packages/core` (Request/Response envelope, ids, method names, params/result typing, format enums).
+[x] Verify protocol types compile: `pnpm -w --filter @wig/canvas-core typecheck` succeeds and a sample import compiles.
 
-[ ] Define shared error codes + error schema in `packages/core` (including `param`, `retryable`, `category`). Establish stable error code ranges (1xxx/2xxx/3xxx/4xxx/5xxx/9xxx).
-[ ] Verify error schema: add a small type-level test or sample file that constructs one error object per range and compiles.
+[x] Define shared error codes + error schema in `packages/core` (including `param`, `retryable`, `category`). Establish stable error code ranges (1xxx/2xxx/3xxx/4xxx/5xxx/9xxx).
+[x] Verify error schema: add a small type-level test or sample file that constructs one error object per range and compiles.
 
-[ ] Decide and document the default IPC transport: Unix domain socket (mac/linux) + Windows named pipe.
-[ ] Verify transport decision is reflected in docs/tasks (search for “socket” and ensure it matches UDS/pipe language; no TCP default).
+[x] Decide and document the default IPC transport: Unix domain socket (mac/linux) + Windows named pipe.
+[x] Verify transport decision is reflected in docs/tasks (search for "socket" and ensure it matches UDS/pipe language; no TCP default).
 
-[ ] Create `packages/daemon` package scaffold with a `canvasd` entrypoint (`bin` or `node dist/index.js`).
-[ ] Verify daemon entrypoint: `node packages/daemon/dist/index.js --help` (or equivalent) runs without crashing.
+[x] Create `packages/daemon` package scaffold with a `canvasd` entrypoint (`bin` or `node dist/index.js`).
+[x] Verify daemon entrypoint: `node packages/daemon/dist/index.js --help` (or equivalent) runs without crashing.
 
-[ ] Implement daemon state dir + transport endpoint selection:
+[x] Implement daemon state dir + transport endpoint selection:
     - mac/linux: Unix domain socket path (under per-user state dir)
     - windows: named pipe name
     Ensure the default is local-only and has safe permissions.
-[ ] Verify endpoint: `canvas daemon status` prints resolved endpoint info and it is usable on this OS.
+[x] Verify endpoint: `canvas daemon status` prints resolved endpoint info and it is usable on this OS.
 
-[ ] Implement protocol handshake/version reporting (daemon returns protocol/client compatibility info in `daemon.status`).
-[ ] Verify handshake: mismatched versions return a 1xxx error with a clear upgrade suggestion.
+[x] Implement protocol handshake/version reporting (daemon returns protocol/client compatibility info in `daemon.status`).
+[x] Verify handshake: mismatched versions return a 1xxx error with a clear upgrade suggestion.
 
-[ ] Implement daemon IPC server skeleton (accept connection, parse JSON messages, write JSON responses).
-[ ] Verify IPC roundtrip: a minimal `ping` method returns `{ ok: true }` from CLI to daemon.
+[x] Implement daemon IPC server skeleton (accept connection, parse JSON messages, write JSON responses).
+[x] Verify IPC roundtrip: a minimal `ping` method returns `{ ok: true }` from CLI to daemon.
 
-[ ] Implement daemon lifecycle commands: start, stop, status (status includes pid, socket path, version).
-[ ] Verify lifecycle: `canvas daemon start`, `canvas daemon status`, and `canvas daemon stop` behave correctly.
+[x] Implement daemon lifecycle commands: start, stop, status (status includes pid, socket path, version).
+[x] Verify lifecycle: `canvas daemon start`, `canvas daemon status`, and `canvas daemon stop` behave correctly.
 
-[ ] Create `packages/cli` package scaffold with `canvas` bin entry and Commander command tree.
-[ ] Verify CLI help: `canvas --help` renders, includes subcommands, and exits 0.
+[x] Create `packages/cli` package scaffold with `canvas` bin entry and Commander command tree.
+[x] Verify CLI help: `canvas --help` renders, includes subcommands, and exits 0.
 
-[ ] Implement CLI→daemon connection helper (connect to socket, send request, read response).
-[ ] Verify CLI→daemon helper: unit test or smoke test sends `ping` and receives response.
+[x] Implement CLI→daemon connection helper (connect to socket, send request, read response).
+[x] Verify CLI→daemon helper: unit test or smoke test sends `ping` and receives response.
 
-[ ] Implement `canvas daemon start|stop|status` commands (thin client calling daemon methods).
-[ ] Verify daemon commands: each command returns valid output in both text and `--format json`.
+[x] Implement `canvas daemon start|stop|status` commands (thin client calling daemon methods).
+[x] Verify daemon commands: each command returns valid output in both text and `--format json`.
 
-[ ] Add Playwright dependency + minimal browser manager in daemon (launch Chromium in headless mode).
-[ ] Verify Playwright launch: daemon can launch and close a browser cleanly without leaking processes.
+[x] Add Playwright dependency + minimal browser manager in daemon (launch Chromium in headless mode).
+[x] Verify Playwright launch: daemon can launch and close a browser cleanly without leaking processes.
 
-[ ] Implement `connect` capability in daemon: open a page and navigate to provided URL (store session in daemon memory).
-[ ] Verify connect: `canvas connect http://example.com` returns success and `canvas status` shows connected URL/session.
+[x] Implement `connect` capability in daemon: open a page and navigate to provided URL (store session in daemon memory).
+[x] Verify connect: `canvas connect http://example.com` returns success and `canvas status` shows connected URL/session.
 
-[ ] Implement `disconnect` capability in daemon: close active page/context and clear session state (daemon remains running).
-[ ] Verify disconnect: `canvas disconnect` clears session and `canvas status` returns disconnected state.
+[x] Implement `disconnect` capability in daemon: close active page/context and clear session state (daemon remains running).
+[x] Verify disconnect: `canvas disconnect` clears session and `canvas status` returns disconnected state.
 
-[ ] Implement `status` capability in daemon (session status): connected URL, browser engine, viewport defaults, watch paths.
-[ ] Verify session status: `canvas status --format json` prints a single JSON object with expected keys.
+[x] Implement `status` capability in daemon (session status): connected URL, browser engine, viewport defaults, watch paths.
+[x] Verify session status: `canvas status --format json` prints a single JSON object with expected keys.
 
-[ ] Implement `canvas connect <url>` CLI command (calls daemon connect; returns a friendly stdout summary).
-[ ] Verify connect output: `canvas connect <url> --format json` prints a single JSON object on stdout and logs only on stderr.
+[x] Implement `canvas connect <url>` CLI command (calls daemon connect; returns a friendly stdout summary).
+[x] Verify connect output: `canvas connect <url> --format json` prints a single JSON object on stdout and logs only on stderr.
 
-[ ] Implement `canvas disconnect` CLI command.
-[ ] Verify disconnect output: returns `{ ok: true }` (or equivalent) and does not shut down the daemon.
+[x] Implement `canvas disconnect` CLI command.
+[x] Verify disconnect output: returns `{ ok: true }` (or equivalent) and does not shut down the daemon.
 
-[ ] Implement `canvas status` CLI command (session status, distinct from `canvas daemon status`).
-[ ] Verify `canvas status`: returns disconnected/connected state correctly in both text and json.
+[x] Implement `canvas status` CLI command (session status, distinct from `canvas daemon status`).
+[x] Verify `canvas status`: returns disconnected/connected state correctly in both text and json.
 
-[ ] Implement screenshot storage helper: ensure `.canvas/screenshots/` exists under current working directory.
-[ ] Verify screenshot dirs: running `canvas screenshot` creates `.canvas/screenshots/` and writes a PNG.
+[x] Implement screenshot storage helper: ensure `.canvas/screenshots/` exists under current working directory.
+[x] Verify screenshot dirs: running `canvas screenshot` creates `.canvas/screenshots/` and writes a PNG.
 
-[ ] Implement `screenshot` capability (viewport): `page.screenshot()` with `--out` support.
-[ ] Verify viewport screenshot: file exists, is non-empty, and `file <path>` reports PNG.
+[x] Implement `screenshot` capability (viewport): `page.screenshot()` with `--out` support.
+[x] Verify viewport screenshot: file exists, is non-empty, and `file <path>` reports PNG.
 
-[ ] Implement `canvas screenshot` CLI command for viewport screenshots (`--out` optional; default timestamp path).
-[ ] Verify default path: calling without `--out` writes to `.canvas/screenshots/<timestamp>.png`.
+[x] Implement `canvas screenshot` CLI command for viewport screenshots (`--out` optional; default timestamp path).
+[x] Verify default path: calling without `--out` writes to `.canvas/screenshots/<timestamp>.png`.
 
-[ ] Implement screenshot defaults for stability (viewport 1280x720, deviceScaleFactor=1, reduced motion on; override flags optional for later).
-[ ] Verify screenshot defaults: repeated screenshots of a static page are byte-stable or visually identical within threshold.
+[x] Implement screenshot defaults for stability (viewport 1280x720, deviceScaleFactor=1, reduced motion on; override flags optional for later).
+[x] Verify screenshot defaults: repeated screenshots of a static page are byte-stable or visually identical within threshold.
 
-[ ] Implement element screenshot capability: `locator.screenshot()` for a provided selector.
-[ ] Verify element screenshot: `canvas screenshot "body" --out ./tmp/body.png` succeeds and output is PNG.
+[x] Implement element screenshot capability: `locator.screenshot()` for a provided selector.
+[x] Verify element screenshot: `canvas screenshot "body" --out ./tmp/body.png` succeeds and output is PNG.
 
-[ ] Implement `canvas screenshot <selector>` CLI support (element screenshot).
-[ ] Verify selector handling: invalid selector returns structured error with `code` in 3xxx range and `param: "selector"`.
+[x] Implement `canvas screenshot <selector>` CLI support (element screenshot).
+[x] Verify selector handling: invalid selector returns structured error with `code` in 3xxx range and `param: "selector"`.
 
-[ ] Add basic stdout/stderr discipline: stdout only prints result payload; logs go to stderr.
-[ ] Verify stdout/stderr separation: in `--format json` mode, stdout is parseable JSON with no extra text.
+[x] Add basic stdout/stderr discipline: stdout only prints result payload; logs go to stderr.
+[x] Verify stdout/stderr separation: in `--format json` mode, stdout is parseable JSON with no extra text.
 
-[ ] Add `--format` plumbing to CLI (accepted but can be no-op in Phase 1 except for json/text wrapper).
-[ ] Verify `--format`: `canvas screenshot --format json` returns JSON and `--format text` returns a human summary.
+[x] Add `--format` plumbing to CLI (accepted but can be no-op in Phase 1 except for json/text wrapper).
+[x] Verify `--format`: `canvas screenshot --format json` returns JSON and `--format text` returns a human summary.
 
-[ ] Add minimal integration test script (one smoke test that starts daemon, connects to a URL, takes a screenshot).
-[ ] Verify integration test: `pnpm -w test` (or `pnpm -w smoke`) runs green on a clean machine.
+[x] Add minimal integration test script (one smoke test that starts daemon, connects to a URL, takes a screenshot).
+[x] Verify integration test: `pnpm -w test` (or `pnpm -w smoke`) runs green on a clean machine.
 
 ---
 
@@ -141,6 +141,15 @@
 
 [ ] Add deterministic text formatting rules (line breaks, indentation, stable ordering) for agent friendliness.
 [ ] Verify formatting: add snapshot tests so formatting changes are intentional.
+
+[ ] Add `--inline` option for `canvas screenshot --format json` to include base64-encoded PNG bytes (for agents that can’t read local files).
+[ ] Verify `--inline`: output JSON includes `base64` field and decoding it yields a valid PNG.
+
+[ ] Implement `context` capability in daemon: bundle `{ screenshot, describe, dom, styles }` for a selector (selector optional = page root).
+[ ] Verify `context`: `canvas context ".hero" --format json` returns all sub-payloads and is stable/deterministic.
+
+[ ] Implement `canvas context [selector]` CLI command (uses output renderer; supports `--inline` for nested screenshot if requested).
+[ ] Verify `canvas context`: JSON output is a single object and includes `screenshot.path` (and `screenshot.base64` when inline).
 
 ---
 
@@ -253,8 +262,8 @@
 [ ] Add package publishing metadata (`name: @wig/canvas`, bin name `canvas`, versioning, license).
 [ ] Verify package integrity: `npm pack` succeeds and contains built artifacts and bin entry.
 
-[ ] Add minimal README “Quickstart” (install, connect, screenshot, describe, diff, watch, a11y).
-[ ] Verify README: commands in README work as written on a clean install.
+[ ] Add agent-facing README “Quickstart” (install, daemon, connect, screenshot, describe, dom, styles, context, diff, watch, a11y).
+[ ] Verify README: commands in README work as written on a clean install AND include at least one end-to-end “agent workflow” example.
 
 [ ] Add `canvas doctor` command to print simple diagnostics (daemon reachable, browser installed, endpoint, last error).
 [ ] Verify doctor: running `canvas doctor` returns actionable output and exit code indicates pass/fail.
@@ -264,6 +273,16 @@
 
 [ ] Add a “Troubleshooting” section (daemon stuck, endpoint issues, OneDrive path issues, browser install issues).
 [ ] Verify troubleshooting: each item includes at least one concrete command to diagnose.
+
+---
+
+## Phase 6 — Agent Integrations (Post-Week 8)
+
+[ ] Add MCP server package (e.g. `packages/mcp`) that exposes the CLI surface to MCP clients.
+[ ] Verify MCP server: a client can call `connect` + `screenshot` (or `context`) and receive the same structured payload as the CLI.
+
+[ ] Add MCP tool definitions for core flows: `connect`, `disconnect`, `status`, `screenshot`, `context`, `describe`, `dom`, `styles`, `diff`, `a11y`.
+[ ] Verify MCP tools: tool schemas match CLI flags and error envelopes; outputs are deterministic and parseable.
 
 ---
 
