@@ -51,6 +51,15 @@ export interface DiffResult {
   baselineInitialized?: boolean;
 }
 
+export interface ExecuteParams {
+  code: string;
+  timeoutMs?: number;
+}
+
+export interface ExecuteResult {
+  value: unknown;
+}
+
 export type WatchEventType = 'file_changed' | 'hmr_start' | 'hmr_complete' | 'ui_ready';
 
 export interface WatchEvent {

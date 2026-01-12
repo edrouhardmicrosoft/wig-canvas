@@ -1,4 +1,11 @@
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
+import {
+  chromium,
+  firefox,
+  webkit,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from 'playwright';
 import { mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
@@ -48,12 +55,15 @@ export class BrowserManager {
       return;
     }
 
-    this.browser = await chromium.launch({
+    const engine = this.config.engine ?? 'chromium';
+    const browserType = engine === 'firefox' ? firefox : engine === 'webkit' ? webkit : chromium;
+
+    this.browser = await browserType.launch({
       headless: this.config.headless,
     });
 
     console.error(
-      `Browser launched (engine: ${this.config.engine ?? 'chromium'}, headless: ${String(this.config.headless)})`
+      `Browser launched (engine: ${engine}, headless: ${String(this.config.headless)})`
     );
   }
 

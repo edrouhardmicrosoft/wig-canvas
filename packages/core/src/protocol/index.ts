@@ -23,6 +23,7 @@ export type MethodName =
   | 'status'
   | 'screenshot.viewport'
   | 'screenshot.element'
+  | 'execute'
   | 'describe'
   | 'dom'
   | 'styles'

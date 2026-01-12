@@ -186,6 +186,9 @@ export class DaemonServer {
           params as { selector: string; out?: string }
         );
 
+      case 'execute':
+        return this.handleExecute(id, params as { code: string; timeoutMs?: number });
+
       default:
         return {
           id,
@@ -248,6 +251,104 @@ export class DaemonServer {
   private async handleDisconnect(id: RequestId): Promise<Response> {
     await this.browserManager.disconnect();
     return this.successResponse(id, { disconnected: true });
+  }
+
+  private async handleExecute(
+    id: RequestId,
+    params: { code: string; timeoutMs?: number }
+  ): Promise<Response> {
+    if (!this.browserManager.isConnected()) {
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.PAGE_NOT_READY,
+          message: 'No page connected. Use connect first.',
+          data: { category: 'browser', retryable: false },
+        },
+      };
+    }
+
+    if (!params.code || typeof params.code !== 'string') {
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.INPUT_MISSING,
+          message: 'Missing required parameter: code',
+          data: { category: 'input', retryable: false, param: 'code' },
+        },
+      };
+    }
+
+    const page = this.browserManager.getPage();
+    if (!page) {
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.PAGE_NOT_READY,
+          message: 'No page connected. Use connect first.',
+          data: { category: 'browser', retryable: false },
+        },
+      };
+    }
+
+    const timeoutMs = params.timeoutMs ?? 5_000;
+
+    let timeoutId: NodeJS.Timeout | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          createTimeoutError(
+            ErrorCodes.EXECUTE_TIMEOUT,
+            `Execute timed out after ${String(timeoutMs)}ms`,
+            { suggestion: 'Increase --timeout-ms or simplify the script' }
+          )
+        );
+      }, timeoutMs);
+    });
+
+    try {
+      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
+        ...args: string[]
+      ) => (...fnArgs: unknown[]) => Promise<unknown>;
+
+      const userFn = new AsyncFunction('page', `"use strict";\n${params.code}`) as (
+        page: unknown
+      ) => Promise<unknown>;
+
+      const value = await Promise.race([userFn(page), timeoutPromise]);
+      return this.successResponse(id, { value });
+    } catch (err) {
+      if (err && typeof err === 'object' && 'code' in err && 'data' in err) {
+        const canvasErr = err as {
+          code: number;
+          message: string;
+          data: { category: string; retryable: boolean; suggestion?: string };
+        };
+        return {
+          id,
+          ok: false,
+          error: { code: canvasErr.code, message: canvasErr.message, data: canvasErr.data },
+        };
+      }
+
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        id,
+        ok: false,
+        error: {
+          code: ErrorCodes.EXECUTE_FAILED,
+          message: `Execute failed: ${message}`,
+          data: { category: 'internal', retryable: false },
+        },
+      };
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   private async handleScreenshot(

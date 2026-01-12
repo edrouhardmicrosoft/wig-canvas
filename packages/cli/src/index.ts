@@ -145,15 +145,43 @@ daemonCmd
       });
       child.unref();
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const startDeadlineMs = 10_000;
+      const startedAt = Date.now();
+      let lastErrorMessage: string | null = null;
 
-      const { running: nowRunning, pid: newPid } = isDaemonRunning();
-      if (nowRunning) {
-        console.log(`Daemon started (PID: ${String(newPid)})`);
-      } else {
-        console.error('Failed to start daemon. Check logs for details.');
-        process.exit(1);
+      const delaysMs = [50, 100, 150, 250, 400, 600, 800, 1000, 1200, 1500, 2000];
+
+      for (const delayMs of delaysMs) {
+        try {
+          const response = await withClient(async (client) => {
+            return client.send<{ pong: boolean }>('ping', {});
+          });
+
+          if (isSuccessResponse(response)) {
+            const { pid: newPid } = isDaemonRunning();
+            console.log(`Daemon started (PID: ${String(newPid ?? 'unknown')})`);
+            return;
+          }
+
+          lastErrorMessage = response.error.message;
+        } catch (err) {
+          lastErrorMessage = err instanceof Error ? err.message : String(err);
+        }
+
+        if (Date.now() - startedAt >= startDeadlineMs) {
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
+
+      const elapsedMs = Date.now() - startedAt;
+      console.error(
+        `Failed to start daemon: did not become ready within ${String(startDeadlineMs)}ms (waited ${String(
+          elapsedMs
+        )}ms).${lastErrorMessage ? ` Last error: ${lastErrorMessage}` : ''}`
+      );
+      process.exit(1);
     }
   });
 
@@ -341,6 +369,55 @@ program
         console.error('Daemon is not running. Start it with: canvas daemon start');
       } else {
         console.error(`Failed to get status: ${message}`);
+      }
+      process.exit(1);
+    }
+  });
+
+program
+  .command('execute')
+  .description(
+    'Execute JavaScript in the connected page context (DANGEROUS: arbitrary code execution)'
+  )
+  .argument('<code>', 'JavaScript source code to run')
+  .option('--timeout-ms <ms>', 'Execution timeout in milliseconds', '5000')
+  .option('--format <format>', 'Output format (text|json)', 'text')
+  .action(async (code: string, options: { timeoutMs: string; format: string }) => {
+    const timeoutMs = Number(options.timeoutMs);
+
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      console.error('Invalid --timeout-ms. Must be a positive number.');
+      process.exit(1);
+    }
+
+    try {
+      const response = await withClient(async (client) => {
+        return client.send<{ value: unknown }>('execute', { code, timeoutMs });
+      });
+
+      if (isSuccessResponse(response)) {
+        if (options.format === 'json') {
+          console.log(JSON.stringify(response.result, null, 2));
+        } else {
+          if (typeof response.result.value === 'string') {
+            console.log(response.result.value);
+          } else {
+            console.log(JSON.stringify(response.result.value, null, 2));
+          }
+        }
+      } else {
+        console.error(`Error: ${response.error.message}`);
+        if (response.error.data.suggestion) {
+          console.error(`Suggestion: ${response.error.data.suggestion}`);
+        }
+        process.exit(1);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
+        console.error('Daemon is not running. Start it with: canvas daemon start');
+      } else {
+        console.error(`Failed to execute: ${message}`);
       }
       process.exit(1);
     }

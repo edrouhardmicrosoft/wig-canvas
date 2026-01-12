@@ -4,6 +4,10 @@ node_modules/
 # Build output
 **/dist/
 
+# TypeScript
+*.tsbuildinfo
+**/*.tsbuildinfo
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
