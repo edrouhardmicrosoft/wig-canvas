@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+**/dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment files
+.env
+.env.*
+
+# Test / coverage output
+coverage/
+
+# Tooling caches
+.turbo/
+.cache/
+.eslintcache
+
+# Repo-local artifacts
+.canvas/
+
+# Agent / tool scratch
+.sisyphus/
