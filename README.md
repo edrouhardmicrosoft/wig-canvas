@@ -19,6 +19,10 @@ pnpm -w build
 ### Start the daemon
 
 ```bash
+# Alias (preferred)
+canvas start
+
+# Explicit
 canvas daemon start
 ```
 
@@ -79,7 +83,7 @@ canvas a11y --level AA
 ### Agent workflow example
 
 ```bash
-canvas daemon start
+canvas start
 canvas connect http://localhost:3000
 canvas context ".hero" --format json
 canvas a11y ".hero" --format json
@@ -95,7 +99,7 @@ Canvas is CLI-first and headless by default. Here's how to see what the agent se
 Run the browser with a visible window:
 
 ```bash
-canvas daemon start --headful
+canvas start --headful
 canvas connect http://localhost:3000
 ```
 
@@ -154,6 +158,11 @@ A built-in web viewer (`canvas viewer start`) for smooth, real-time browser stre
 ### Daemon isn’t running
 
 ```bash
+# Alias
+canvas status
+canvas start
+
+# Explicit
 canvas daemon status
 canvas daemon start
 ```
@@ -188,6 +197,11 @@ mkdir -p .canvas
 ### Daemon stuck
 
 ```bash
+# Alias
+canvas stop
+canvas start
+
+# Explicit
 canvas daemon stop
 canvas daemon start
 ```
