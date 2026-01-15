@@ -1109,9 +1109,9 @@ program
     }
   });
 
-program
-  .command('viewer')
-  .description('Manage the live viewer')
+const viewerCmd = program.command('viewer').description('Manage the live viewer');
+
+viewerCmd
   .command('start')
   .description('Start the live viewer server')
   .option('--port <port>', 'Viewer port (default 9222)', '9222')
@@ -1145,9 +1145,7 @@ program
     }
   });
 
-program
-  .command('viewer')
-  .description('Manage the live viewer')
+viewerCmd
   .command('stop')
   .description('Stop the live viewer server')
   .option('--format <format>', 'Output format (text|json|yaml|ndjson)', 'text')
@@ -1170,9 +1168,7 @@ program
     }
   });
 
-program
-  .command('viewer')
-  .description('Manage the live viewer')
+viewerCmd
   .command('status')
   .description('Show live viewer status')
   .option('--format <format>', 'Output format (text|json|yaml|ndjson)', 'text')
