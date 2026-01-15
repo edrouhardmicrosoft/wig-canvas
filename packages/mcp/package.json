@@ -1,0 +1,23 @@
+{
+  "name": "@wig/canvas-mcp",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "MCP server wrapper for canvas CLI",
+  "bin": {
+    "canvas-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@wig/canvas-core": "workspace:*",
+    "zod": "^4.3.5"
+  },
+  "files": [
+    "dist"
+  ]
+}

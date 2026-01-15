@@ -298,11 +298,11 @@
 
 ## Phase 6 — Agent Integrations (Post-Week 8)
 
-[ ] Add MCP server package (e.g. `packages/mcp`) that exposes the CLI surface to MCP clients.
-[ ] Verify MCP server: a client can call `connect` + `screenshot` (or `context`) and receive the same structured payload as the CLI.
+[x] Add MCP server package (e.g. `packages/mcp`) that exposes the CLI surface to MCP clients.
+[x] Verify MCP server: a client can call `connect` + `screenshot` (or `context`) and receive the same structured payload as the CLI.
+[x] Add MCP tool definitions for core flows: `connect`, `disconnect`, `status`, `screenshot`, `context`, `describe`, `dom`, `styles`, `diff`, `a11y`.
+[x] Verify MCP tools: tool schemas match CLI flags and error envelopes; outputs are deterministic and parseable.
 
-[ ] Add MCP tool definitions for core flows: `connect`, `disconnect`, `status`, `screenshot`, `context`, `describe`, `dom`, `styles`, `diff`, `a11y`.
-[ ] Verify MCP tools: tool schemas match CLI flags and error envelopes; outputs are deterministic and parseable.
 
 ---
 
