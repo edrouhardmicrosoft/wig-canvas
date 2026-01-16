@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import { withClient } from './client/index.js';
 import { render, renderError } from './output/index.js';
+import { registerInitCommand } from './init-command.js';
 
 const VERSION = '0.0.0';
 
@@ -33,6 +34,8 @@ program
   .name('canvas')
   .description('CLI-first canvas toolkit for browser automation')
   .version(VERSION);
+
+registerInitCommand(program);
 
 const daemonCmd = program.command('daemon').description('Manage the canvas daemon process');
 

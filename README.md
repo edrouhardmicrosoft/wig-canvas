@@ -2,7 +2,83 @@
 
 CLI-first canvas toolkit for browser automation and visual development.
 
-## Quickstart
+## Quick Start (Prompt-First, Recommended)
+
+If you're using an agent, this is the fastest and most reliable setup.
+It installs repo-local skill prompts and a repo-local Canvas CLI entrypoint.
+
+Copy/paste this into your agent:
+
+```
+You are in the Canvas repo. Perform a prompt-first bootstrap with NO npm/npx.
+
+Goals:
+1) Install repo-local agent skill prompts from integrations/**.
+2) Build and install a repo-local Canvas CLI entrypoint so the user can run Canvas.
+
+Constraints:
+- Do NOT write outside the repo.
+- Do NOT delete anything.
+- Ask before overwriting existing files.
+- Prefer pnpm if available. If pnpm is missing, ask the user.
+
+Steps:
+
+A) Find the repo root
+- Walk up from the current directory until you find .git or package.json.
+- Treat that directory as repo root.
+
+B) Install/build the CLI (no npm/npx)
+- If pnpm is available:
+  - Run: pnpm -w install
+  - Run: pnpm -w --filter @wig/canvas build
+- If pnpm is not available, ask the user how they want to proceed.
+
+C) Create a repo-local CLI entrypoint (ask before overwrite)
+- Create: <repoRoot>/bin/canvas (repo-local; do not write to /usr/local/bin)
+- Contents (exact):
+  #!/usr/bin/env node
+  import '../packages/cli/dist/index.js';
+- Mark it executable (chmod +x).
+- If the file exists, ask before overwriting.
+- If you cannot chmod, explain how to run directly:
+  node packages/cli/dist/index.js
+
+D) Install skill prompts (ask before overwrite)
+Copy these files (repo-local only):
+- integrations/opencode/canvas-agent-cli/SKILL.md
+  -> .opencode/skill/canvas-agent-cli/SKILL.md
+- integrations/codex/canvas-agent-cli/SKILL.md
+  -> .codex/skills/canvas-agent-cli/SKILL.md
+- integrations/copilot/canvas-agent-cli.agent.md
+  -> .github/agents/canvas-agent-cli.agent.md
+- integrations/claude/canvas-agent-cli.prompt.md
+  -> claude/canvas-agent-cli.prompt.md
+
+E) Report results
+- Print a summary of created/overwritten/skipped files.
+- Provide the suggested CLI commands:
+  ./bin/canvas --help
+  ./bin/canvas init
+
+If ./bin/canvas cannot be executed, use:
+  node packages/cli/dist/index.js --help
+```
+
+## Regular Setup (CLI Wizard)
+
+If you prefer an interactive CLI wizard:
+
+```bash
+canvas init
+```
+
+This will:
+- set up repo-local agent skill prompts (OpenCode/Codex/Copilot/Claude)
+- keep everything inside your repo (no writes to your home directory)
+- never delete files (it will ask before overwriting)
+
+## Quickstart (Repo Development)
 
 ### Install dependencies
 

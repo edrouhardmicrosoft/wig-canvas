@@ -15,10 +15,12 @@
   },
   "dependencies": {
     "@wig/canvas-core": "workspace:*",
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "prompts": "^2.4.2"
   },
   "files": [
-    "dist"
+    "dist",
+    "integrations"
   ],
   "repository": {
     "type": "git",
@@ -27,5 +29,8 @@
   "bugs": {
     "url": "https://github.com/wig/canvas/issues"
   },
-  "homepage": "https://github.com/wig/canvas#readme"
+  "homepage": "https://github.com/wig/canvas#readme",
+  "devDependencies": {
+    "@types/prompts": "^2.4.9"
+  }
 }
