@@ -601,7 +601,7 @@ program
           return client.send<SessionInfo>('connect', params);
         });
 
-        render(response, format, (result) => {
+        render<SessionInfo>(response, format, (result) => {
           console.log(`Connected to: ${result.url ?? url}`);
           console.log(`  Browser:  ${result.browser ?? 'unknown'}`);
           if (result.viewport) {
@@ -618,7 +618,7 @@ program
               const response = await withClient(async (client) => {
                 return client.send<SessionInfo>('connect', params);
               });
-              render(response, format, (result) => {
+              render<SessionInfo>(response, format, (result) => {
                 console.log(`Connected to: ${result.url ?? url}`);
                 console.log(`  Browser:  ${result.browser ?? 'unknown'}`);
                 if (result.viewport) {
@@ -757,7 +757,7 @@ program
       const response = await withClient(async (client) => {
         return client.send<{ value: unknown }>('execute', { code, timeoutMs });
       });
-      render(response, format, (result) => {
+      render<{ value: unknown }>(response, format, (result) => {
         if (typeof result.value === 'string') {
           console.log(result.value);
         } else {
@@ -772,7 +772,7 @@ program
             const response = await withClient(async (client) => {
               return client.send<{ value: unknown }>('execute', { code, timeoutMs });
             });
-            render(response, format, (result) => {
+            render<{ value: unknown }>(response, format, (result) => {
               if (typeof result.value === 'string') {
                 console.log(result.value);
               } else {
@@ -819,7 +819,7 @@ program
           });
         });
 
-        render(response, format, (result) => {
+        render<DiffResult>(response, format, (result) => {
           const ratioPct = (result.mismatchedRatio * 100).toFixed(2);
           console.log(`Baseline: ${result.baselinePath}`);
           console.log(`Current:  ${result.currentPath}`);
@@ -843,7 +843,7 @@ program
                 });
               });
 
-              render(response, format, (result) => {
+              render<DiffResult>(response, format, (result) => {
                 const ratioPct = (result.mismatchedRatio * 100).toFixed(2);
                 console.log(`Baseline: ${result.baselinePath}`);
                 console.log(`Current:  ${result.currentPath}`);
@@ -913,7 +913,7 @@ program
         const response = await withClient(async (client) => {
           return client.send<ScreenshotResult>(method, params);
         });
-        render(response, format, (result) => {
+        render<ScreenshotResult>(response, format, (result) => {
           console.log(`Screenshot saved to: ${result.path}`);
           console.log(`  Size: ${String(result.width)}x${String(result.height)}`);
           if (result.base64) {
@@ -942,7 +942,7 @@ program
               const response = await withClient(async (client) => {
                 return client.send<ScreenshotResult>(method, params);
               });
-              render(response, format, (result) => {
+              render<ScreenshotResult>(response, format, (result) => {
                 console.log(`Screenshot saved to: ${result.path}`);
                 console.log(`  Size: ${String(result.width)}x${String(result.height)}`);
                 if (result.base64) {
@@ -1012,7 +1012,7 @@ program
           });
         });
 
-        render(response, format, (result) => {
+        render<StylesResult>(response, format, (result) => {
           console.log(`Styles for: ${result.selector}`);
           console.log(`URL: ${result.url}`);
           console.log('');
@@ -1039,7 +1039,7 @@ program
                 });
               });
 
-              render(response, format, (result) => {
+              render<StylesResult>(response, format, (result) => {
                 console.log(`Styles for: ${result.selector}`);
                 console.log(`URL: ${result.url}`);
                 console.log('');
@@ -1117,7 +1117,7 @@ program
           });
         });
 
-        render(response, format, (result) => {
+        render<DomResult>(response, format, (result) => {
           if (format === 'text') {
             console.log(result.yaml);
           } else {
@@ -1143,7 +1143,7 @@ program
                 });
               });
 
-              render(response, format, (result) => {
+              render<DomResult>(response, format, (result) => {
                 if (format === 'text') {
                   console.log(result.yaml);
                 } else {
@@ -1206,7 +1206,7 @@ program
             backoffMs,
           });
         });
-        render(response, format, (result) => {
+        render<DescribeResult>(response, format, (result) => {
           if (format === 'text') {
             console.log(result.summary);
           } else {
@@ -1229,7 +1229,7 @@ program
                   backoffMs,
                 });
               });
-              render(response, format, (result) => {
+              render<DescribeResult>(response, format, (result) => {
                 if (format === 'text') {
                   console.log(result.summary);
                 } else {
@@ -1607,7 +1607,7 @@ program
           });
         });
 
-        render(response, format, (result) => {
+        render<ContextResult>(response, format, (result) => {
           if (format === 'text') {
             console.log('Context for:', result.selector ?? 'body');
             console.log('URL:', result.url);
@@ -1650,7 +1650,7 @@ program
                 });
               });
 
-              render(response, format, (result) => {
+              render<ContextResult>(response, format, (result) => {
                 if (format === 'text') {
                   console.log('Context for:', result.selector ?? 'body');
                   console.log('URL:', result.url);
@@ -1744,7 +1744,7 @@ program
           });
         });
 
-        render(response, format, (result) => {
+        render<A11yResult>(response, format, (result) => {
           const total = result.violations.length;
           if (format === 'text') {
             console.log(`A11y scan (${result.level}) for: ${result.selector ?? 'page'}`);
@@ -1785,7 +1785,7 @@ program
                 });
               });
 
-              render(response, format, (result) => {
+              render<A11yResult>(response, format, (result) => {
                 const total = result.violations.length;
                 if (format === 'text') {
                   console.log(`A11y scan (${result.level}) for: ${result.selector ?? 'page'}`);
@@ -1834,7 +1834,7 @@ program
         return client.send<DoctorResult>('doctor', {});
       });
 
-      render(response, format, (result) => {
+      render<DoctorResult>(response, format, (result) => {
         if (format === 'text') {
           console.log(`Doctor: ${result.ok ? 'OK' : 'FAIL'}`);
           console.log(`Endpoint: ${result.endpoint}`);
@@ -1872,7 +1872,7 @@ program
               return client.send<DoctorResult>('doctor', {});
             });
 
-            render(response, format, (result) => {
+            render<DoctorResult>(response, format, (result) => {
               if (format === 'text') {
                 console.log(`Doctor: ${result.ok ? 'OK' : 'FAIL'}`);
                 console.log(`Endpoint: ${result.endpoint}`);
