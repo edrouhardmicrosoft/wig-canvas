@@ -115,6 +115,44 @@ async function tryAutoStartDaemon(format: OutputFormat): Promise<boolean> {
   return false;
 }
 
+async function stopDaemonIfRunning(): Promise<void> {
+  const { running } = isDaemonRunning();
+  if (!running) return;
+
+  try {
+    await withClient(async (client) => {
+      await client.send('daemon.stop', {});
+    });
+  } catch {}
+}
+
+type WithEphemeralDaemonOptions = {
+  format: OutputFormat;
+  keepAlive?: boolean;
+};
+
+async function withEphemeralDaemon<T>(
+  options: WithEphemeralDaemonOptions,
+  fn: () => Promise<T>
+): Promise<T> {
+  const wasRunning = isDaemonRunning().running;
+  if (!wasRunning) {
+    const started = await tryAutoStartDaemon(options.format);
+    if (!started) {
+      throw new Error('Failed to auto-start daemon');
+    }
+  }
+
+  try {
+    return await fn();
+  } finally {
+    const shouldStop = !wasRunning && !options.keepAlive;
+    if (shouldStop) {
+      await stopDaemonIfRunning();
+    }
+  }
+}
+
 daemonCmd
   .command('status')
   .description('Show daemon status and endpoint info')
@@ -314,7 +352,19 @@ daemonCmd
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<{ pong: boolean }>('ping', {});
+            });
+            render(response, format, () => {
+              console.log('pong');
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to ping after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to connect: ${message}`, format);
       }
@@ -560,9 +610,8 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          const started = await tryAutoStartDaemon(format);
-          if (started) {
-            try {
+          try {
+            await withEphemeralDaemon({ format, keepAlive: true }, async () => {
               const response = await withClient(async (client) => {
                 return client.send<SessionInfo>('connect', params);
               });
@@ -575,14 +624,13 @@ program
                   );
                 }
               });
-              return;
-            } catch (retryErr) {
-              const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
-              renderError(`Failed to connect after starting daemon: ${retryMessage}`, format);
-              return;
-            }
+            });
+            return;
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to connect after starting daemon: ${retryMessage}`, format);
+            return;
           }
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
         } else {
           renderError(`Failed to connect: ${message}`, format);
         }
@@ -607,7 +655,19 @@ program
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<{ disconnected: boolean }>('disconnect', {});
+            });
+            render(response, format, () => {
+              console.log('Disconnected');
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to disconnect after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to disconnect: ${message}`, format);
       }
@@ -642,7 +702,31 @@ program
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<SessionInfo>('status', {});
+            });
+            render(response, format, (session) => {
+              console.log('Session Status');
+              console.log(`  Connected: ${session.connected ? 'yes' : 'no'}`);
+              if (session.url) {
+                console.log(`  URL:       ${session.url}`);
+              }
+              if (session.browser) {
+                console.log(`  Browser:   ${session.browser}`);
+              }
+              if (session.viewport) {
+                console.log(
+                  `  Viewport:  ${String(session.viewport.width)}x${String(session.viewport.height)}`
+                );
+              }
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to get status after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to get status: ${message}`, format);
       }
@@ -680,7 +764,23 @@ program
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<{ value: unknown }>('execute', { code, timeoutMs });
+            });
+            render(response, format, (result) => {
+              if (typeof result.value === 'string') {
+                console.log(result.value);
+              } else {
+                console.log(JSON.stringify(result.value, null, 2));
+              }
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to execute after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to execute: ${message}`, format);
       }
@@ -730,7 +830,32 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<DiffResult>('diff', {
+                  selector,
+                  since: options.since,
+                  threshold,
+                });
+              });
+
+              render(response, format, (result) => {
+                const ratioPct = (result.mismatchedRatio * 100).toFixed(2);
+                console.log(`Baseline: ${result.baselinePath}`);
+                console.log(`Current:  ${result.currentPath}`);
+                console.log(`Diff:     ${result.diffPath}`);
+                if (result.baselineInitialized) {
+                  console.log('Baseline initialized (no prior baseline existed).');
+                }
+                console.log(`Mismatched: ${String(result.mismatchedPixels)} pixels (${ratioPct}%)`);
+                console.log(`Regions: ${String(result.regions.length)}`);
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to diff after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to diff: ${message}`, format);
         }
@@ -797,7 +922,37 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const method = selector ? 'screenshot.element' : 'screenshot.viewport';
+              const params = selector
+                ? {
+                    selector,
+                    out: options.out,
+                    inline: options.inline,
+                    timeoutMs,
+                    retries,
+                    backoffMs,
+                  }
+                : { out: options.out, inline: options.inline, timeoutMs, retries, backoffMs };
+
+              const response = await withClient(async (client) => {
+                return client.send<ScreenshotResult>(method, params);
+              });
+              render(response, format, (result) => {
+                console.log(`Screenshot saved to: ${result.path}`);
+                console.log(`  Size: ${String(result.width)}x${String(result.height)}`);
+                if (result.base64) {
+                  console.log(
+                    `  Base64: ${result.base64.slice(0, 50)}... (${result.base64.length} chars)`
+                  );
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to take screenshot after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to take screenshot: ${message}`, format);
         }
@@ -869,7 +1024,35 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<StylesResult>('styles', {
+                  selector,
+                  props,
+                  timeoutMs,
+                  retries,
+                  backoffMs,
+                });
+              });
+
+              render(response, format, (result) => {
+                console.log(`Styles for: ${result.selector}`);
+                console.log(`URL: ${result.url}`);
+                console.log('');
+                const propNames = props ?? [...DEFAULT_STYLE_PROPS];
+                for (const prop of propNames) {
+                  const value = result.props[prop];
+                  if (value !== undefined) {
+                    console.log(`  ${prop}: ${value}`);
+                  }
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to get styles after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to get styles: ${message}`, format);
         }
@@ -945,7 +1128,34 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<DomResult>('dom', {
+                  selector,
+                  depth,
+                  timeoutMs,
+                  retries,
+                  backoffMs,
+                });
+              });
+
+              render(response, format, (result) => {
+                if (format === 'text') {
+                  console.log(result.yaml);
+                } else {
+                  console.log(`DOM snapshot for: ${result.selector ?? 'body'}`);
+                  console.log(`URL: ${result.url}`);
+                  console.log(`Depth: ${String(result.depth)}`);
+                  console.log('');
+                  console.log(result.yaml);
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to get DOM after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to get DOM: ${message}`, format);
         }
@@ -1006,7 +1216,31 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<DescribeResult>('describe', {
+                  selector,
+                  timeoutMs,
+                  retries,
+                  backoffMs,
+                });
+              });
+              render(response, format, (result) => {
+                if (format === 'text') {
+                  console.log(result.summary);
+                } else {
+                  console.log(`Description for: ${result.selector}`);
+                  console.log(`URL: ${result.url}`);
+                  console.log('');
+                  console.log(result.summary);
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to describe after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to describe: ${message}`, format);
         }
@@ -1102,7 +1336,84 @@ program
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          const intervalMs = Number(options.interval);
+          if (!Number.isFinite(intervalMs) || intervalMs < 250) {
+            renderError('Invalid --interval. Must be a number >= 250.', format);
+            return;
+          }
+
+          await withEphemeralDaemon({ format, keepAlive: true }, async () => {
+            await withClient(async (client) => {
+              const response = await client.send<{ subscriberId: string }>('watch.subscribe', {});
+              if (!isSuccessResponse(response)) {
+                render(response, format, () => {});
+                return;
+              }
+
+              const subscriberId = response.result.subscriberId;
+
+              if (options.live) {
+                const configure = await client.send<{ live: boolean }>('watch.configure', {
+                  live: true,
+                  intervalMs: intervalMs,
+                });
+                if (!isSuccessResponse(configure)) {
+                  render(configure, format, () => {});
+                  return;
+                }
+              }
+
+              let shuttingDown = false;
+              const shutdown = async (): Promise<void> => {
+                if (shuttingDown) return;
+                shuttingDown = true;
+                try {
+                  if (options.live) {
+                    await client.send('watch.configure', { live: false });
+                  }
+                  await client.send('watch.unsubscribe', { subscriberId });
+                } catch {}
+                process.exit(0);
+              };
+
+              process.on('SIGINT', () => {
+                void shutdown();
+              });
+
+              client.onLine((msg: string) => {
+                try {
+                  const parsed = JSON.parse(msg) as { ok?: unknown; id?: unknown };
+                  if (
+                    parsed &&
+                    typeof parsed === 'object' &&
+                    typeof parsed.ok === 'boolean' &&
+                    typeof parsed.id === 'string'
+                  ) {
+                    return;
+                  }
+                  const event = parsed as { type?: unknown; screenshot?: unknown };
+                  if (
+                    event &&
+                    typeof event === 'object' &&
+                    event.type === 'screenshot' &&
+                    typeof event.screenshot === 'object' &&
+                    event.screenshot
+                  ) {
+                    process.stdout.write(JSON.stringify(event) + '\n');
+                    return;
+                  }
+                } catch {}
+                process.stdout.write(msg + '\n');
+              });
+
+              await new Promise(() => {});
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to watch after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to watch: ${message}`, format);
       }
@@ -1138,7 +1449,23 @@ viewerCmd
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format, keepAlive: true }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<{ running?: boolean; url?: string }>('viewer.start', { port });
+            });
+            render(response, format, (result: { running?: boolean; url?: string }) => {
+              if (result.url) {
+                console.log(`Viewer running at ${result.url}`);
+              } else if (result.running) {
+                console.log('Viewer running');
+              }
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to start viewer after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to start viewer: ${message}`, format);
       }
@@ -1161,7 +1488,19 @@ viewerCmd
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send('viewer.stop', {});
+            });
+            render(response, format, () => {
+              console.log('Viewer stopped');
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to stop viewer after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to stop viewer: ${message}`, format);
       }
@@ -1188,7 +1527,23 @@ viewerCmd
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<{ running?: boolean; url?: string }>('viewer.status', {});
+            });
+            render(response, format, (result: { running?: boolean; url?: string }) => {
+              if (result.running) {
+                console.log(`Viewer running at ${result.url ?? 'unknown'}`);
+              } else {
+                console.log('Viewer not running');
+              }
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to get viewer status after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to get viewer status: ${message}`, format);
       }
@@ -1280,7 +1635,51 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<ContextResult>('context', {
+                  selector,
+                  depth,
+                  timeoutMs,
+                  retries,
+                  backoffMs,
+                });
+              });
+
+              render(response, format, (result) => {
+                if (format === 'text') {
+                  console.log('Context for:', result.selector ?? 'body');
+                  console.log('URL:', result.url);
+                  console.log('');
+                  console.log('=== Screenshot ===');
+                  console.log(`Path: ${result.screenshot.path}`);
+                  console.log(
+                    `Size: ${String(result.screenshot.width)}x${String(result.screenshot.height)}`
+                  );
+                  console.log('');
+                  console.log('=== Description ===');
+                  console.log(result.describe.summary);
+                  console.log('');
+                  console.log('=== DOM ===');
+                  console.log(result.dom.yaml);
+                  console.log('');
+                  console.log('=== Key Styles ===');
+                  for (const [prop, value] of Object.entries(result.styles.props).slice(0, 6)) {
+                    console.log(`  ${prop}: ${value}`);
+                  }
+                } else {
+                  console.log('Context for:', result.selector ?? 'body');
+                  console.log('URL:', result.url);
+                  console.log('Screenshot:', result.screenshot.path);
+                  console.log('Description:', result.describe.summary);
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to get context after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to get context: ${message}`, format);
         }
@@ -1371,7 +1770,49 @@ program
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-          renderError('Daemon is not running. Start it with: canvas daemon start', format);
+          try {
+            await withEphemeralDaemon({ format }, async () => {
+              const response = await withClient(async (client) => {
+                return client.send<A11yResult>('a11y', {
+                  selector,
+                  level,
+                  timeoutMs,
+                  retries,
+                  backoffMs,
+                });
+              });
+
+              render(response, format, (result) => {
+                const total = result.violations.length;
+                if (format === 'text') {
+                  console.log(`A11y scan (${result.level}) for: ${result.selector ?? 'page'}`);
+                  console.log(`URL: ${result.url}`);
+                  console.log(`Violations: ${String(total)}`);
+                  if (total > 0) {
+                    const first = result.violations[0];
+                    if (first) {
+                      console.log(`Top violation: ${first.id} (${first.help ?? 'no help'})`);
+                      const firstNode = first.nodes?.[0];
+                      if (firstNode?.target?.[0]) {
+                        console.log(`Example node: ${firstNode.target[0]}`);
+                      }
+                    }
+                  }
+                  if (result.notes && result.notes.length > 0) {
+                    console.log('Notes:');
+                    for (const note of result.notes) {
+                      console.log(`- ${note}`);
+                    }
+                  }
+                } else {
+                  console.log(`A11y scan complete: ${String(total)} violation(s)`);
+                }
+              });
+            });
+          } catch (retryErr) {
+            const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            renderError(`Failed to run a11y after starting daemon: ${retryMessage}`, format);
+          }
         } else {
           renderError(`Failed to run a11y: ${message}`, format);
         }
@@ -1422,7 +1863,46 @@ program
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('ENOENT') || message.includes('ECONNREFUSED')) {
-        renderError('Daemon is not running. Start it with: canvas daemon start', format);
+        try {
+          await withEphemeralDaemon({ format }, async () => {
+            const response = await withClient(async (client) => {
+              return client.send<DoctorResult>('doctor', {});
+            });
+
+            render(response, format, (result) => {
+              if (format === 'text') {
+                console.log(`Doctor: ${result.ok ? 'OK' : 'FAIL'}`);
+                console.log(`Endpoint: ${result.endpoint}`);
+                console.log(`Transport: ${result.transport}`);
+                for (const check of result.checks) {
+                  console.log(`- ${check.ok ? 'ok' : 'fail'}: ${check.label}`);
+                  if (check.detail) {
+                    console.log(`  ${check.detail}`);
+                  }
+                  if (check.suggestion) {
+                    console.log(`  Suggestion: ${check.suggestion}`);
+                  }
+                }
+                if (result.lastError) {
+                  console.log('Last error:');
+                  console.log(`  ${result.lastError.message}`);
+                  if (result.lastError.data.suggestion) {
+                    console.log(`  Suggestion: ${result.lastError.data.suggestion}`);
+                  }
+                }
+              } else {
+                console.log(`Doctor complete: ${result.ok ? 'ok' : 'fail'}`);
+              }
+
+              if (!result.ok) {
+                process.exit(1);
+              }
+            });
+          });
+        } catch (retryErr) {
+          const retryMessage = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          renderError(`Failed to run doctor after starting daemon: ${retryMessage}`, format);
+        }
       } else {
         renderError(`Failed to run doctor: ${message}`, format);
       }
