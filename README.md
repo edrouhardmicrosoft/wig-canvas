@@ -31,7 +31,8 @@ Steps:
 A) Determine the project root
 - Use the current working directory as the target project directory.
 - If there is a .git folder above, you may treat that as the project root.
-- If there is no .git, still proceed using the current directory as root.
+- If there is no .git, still proceed using the current directory as root (do NOT require git).
+- Optional: if the user wants this folder to become a git repo, ask before running `git init`.
 
 B) Install Canvas source into the project (no manual download)
 - Choose an install directory inside the project:
